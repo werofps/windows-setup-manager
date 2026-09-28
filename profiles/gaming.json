@@ -1,5 +1,6 @@
 {
     "Name": "Gaming",
+
     "Apps": [
         {
             "Name": "Discord",
@@ -8,7 +9,7 @@
             "ProcessName": "Discord"
         },
         {
-            "Name": "Riot Client",
+            "Name": "Riot Games",
             "Path": "C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
             "Arguments": "",
             "ProcessName": "RiotClientServices"
@@ -16,7 +17,10 @@
     ],
 
     "Websites": [
-        "https://tracker.gg/valorant"
+        {
+            "Name": "Valorant Tracker",
+            "Url": "https://tracker.gg/valorant"
+        }
     ],
 
     "Folders": [],

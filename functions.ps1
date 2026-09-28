@@ -1,46 +1,28 @@
 # ============================================
-# WINDOWS SETUP MANAGER - YHTEISET FUNKTIOT
+# WINDOWS SETUP MANAGER - FUNKTIOT
 # ============================================
 
-# Projektin juurikansio
 $Script:ProjectRoot = $PSScriptRoot
 
-
-# ============================================
-# LUETAAN YLEINEN CONFIG.JSON
-# ============================================
+$configPath = Join-Path $Script:ProjectRoot "config.json"
 
 try {
-    $configPath = Join-Path $Script:ProjectRoot "config.json"
-
-    if (-not (Test-Path $configPath)) {
-        throw "config.json tiedostoa ei loytynyt."
-    }
-
     $globalConfig = Get-Content $configPath -Raw -ErrorAction Stop |
         ConvertFrom-Json
 }
 catch {
-    Write-Host "Virhe config.json tiedoston lukemisessa:" -ForegroundColor Red
-    Write-Host $_.Exception.Message -ForegroundColor Red
-
+    Write-Host "config.json lukeminen epaonnistui." -ForegroundColor Red
     exit 1
 }
 
-
-# Profiilien kansio config.json tiedostosta
 $Script:ProfilesDir = Join-Path `
     $Script:ProjectRoot `
     $globalConfig.profiles_folder
 
-
-# Lokitiedosto config.json tiedostosta
 $Script:LogFile = Join-Path `
     $Script:ProjectRoot `
     $globalConfig.log_file
 
-
-# Lokikansio
 $Script:LogDir = Split-Path $Script:LogFile
 
 
@@ -66,9 +48,7 @@ function Write-Log {
         $time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
         "$time [$Level] $Message" |
-            Add-Content `
-                -Path $Script:LogFile `
-                -ErrorAction Stop
+            Add-Content -Path $Script:LogFile
     }
     catch {
         Write-Host "Lokikirjoitus epaonnistui." -ForegroundColor Red
@@ -91,15 +71,11 @@ function Get-ProfileConfig {
             "$ProfileName.json"
 
         if (-not (Test-Path $path)) {
-            throw "Profiilitiedostoa ei loytynyt: $path"
+            throw "Profiilia ei loytynyt: $path"
         }
 
-        $content = Get-Content `
-            $path `
-            -Raw `
-            -ErrorAction Stop
-
-        return $content | ConvertFrom-Json
+        return Get-Content $path -Raw |
+            ConvertFrom-Json
     }
     catch {
         Write-Host `
@@ -107,17 +83,13 @@ function Get-ProfileConfig {
             -ForegroundColor Red
 
         Write-Log `
-            "Profiilin $ProfileName lukeminen epaonnistui: $($_.Exception.Message)" `
+            "Profiilin lukeminen epaonnistui: $($_.Exception.Message)" `
             "ERROR"
 
         return $null
     }
 }
 
-
-# ============================================
-# YMPARISTOMUUTTUJIEN LAAJENNUS
-# ============================================
 
 function Expand-AppPath {
     param (
@@ -129,7 +101,29 @@ function Expand-AppPath {
 
 
 # ============================================
-# YHDEN OHJELMAN KAYNNISTYS
+# CHROME
+# ============================================
+
+function Get-ChromePath {
+
+    $paths = @(
+        "C:\Program Files\Google\Chrome\Application\chrome.exe",
+        "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+    )
+
+    foreach ($path in $paths) {
+        if (Test-Path $path) {
+            return $path
+        }
+    }
+
+    return $null
+}
+
+
+# ============================================
+# OHJELMAN KAYNNISTYS
 # ============================================
 
 function Start-ProfileApp {
@@ -138,8 +132,6 @@ function Start-ProfileApp {
     )
 
     try {
-
-        # Tarkistetaan onko ohjelma jo kaynnissa
         if ($App.ProcessName) {
 
             $running = Get-Process `
@@ -147,24 +139,18 @@ function Start-ProfileApp {
                 -ErrorAction SilentlyContinue
 
             if ($running) {
-
                 Write-Host `
                     "$($App.Name) on jo kaynnissa." `
                     -ForegroundColor Yellow
 
-                Write-Log `
-                    "$($App.Name) oli jo kaynnissa"
+                Write-Log "$($App.Name) oli jo kaynnissa"
 
                 return
             }
         }
 
-
-        # Laajennetaan esim. %LOCALAPPDATA%
         $path = Expand-AppPath $App.Path
 
-
-        # Tarkistetaan loytyyko ohjelma
         if (-not (Test-Path $path)) {
 
             Write-Host `
@@ -172,14 +158,12 @@ function Start-ProfileApp {
                 -ForegroundColor Yellow
 
             Write-Log `
-                "$($App.Name) ei loytynyt polusta $path" `
+                "$($App.Name) ei loytynyt: $path" `
                 "WARNING"
 
             return
         }
 
-
-        # Kaynnistetaan ohjelma
         if ($App.Arguments) {
 
             Start-Process `
@@ -194,13 +178,11 @@ function Start-ProfileApp {
                 -ErrorAction Stop
         }
 
-
         Write-Host `
             "$($App.Name) kaynnistetty." `
             -ForegroundColor Green
 
-        Write-Log `
-            "$($App.Name) kaynnistetty"
+        Write-Log "$($App.Name) kaynnistetty"
     }
     catch {
 
@@ -216,32 +198,99 @@ function Start-ProfileApp {
 
 
 # ============================================
-# GOOGLE CHROME -POLUN ETSINTA
+# VERKKOSIVUN AVAAMINEN
 # ============================================
 
-function Get-ChromePath {
-
-    $chromePaths = @(
-        "C:\Program Files\Google\Chrome\Application\chrome.exe",
-        "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+function Start-ProfileWebsite {
+    param (
+        $Website
     )
 
+    try {
+        $chromePath = Get-ChromePath
 
-    foreach ($path in $chromePaths) {
-
-        if (Test-Path $path) {
-            return $path
+        if (-not $chromePath) {
+            throw "Google Chromea ei loytynyt."
         }
+
+        # Tukee seka uusia Name/Url-objekteja
+        # etta vanhoja pelkkia URL-merkkijonoja.
+        if ($Website -is [string]) {
+            $name = $Website
+            $url = $Website
+        }
+        else {
+            $name = $Website.Name
+            $url = $Website.Url
+        }
+
+        Start-Process `
+            -FilePath $chromePath `
+            -ArgumentList $url `
+            -ErrorAction Stop
+
+        Write-Host `
+            "$name avattu Chromessa." `
+            -ForegroundColor Green
+
+        Write-Log `
+            "$name avattu Chromessa: $url"
     }
+    catch {
 
+        Write-Host `
+            "Verkkosivun avaaminen epaonnistui: $($_.Exception.Message)" `
+            -ForegroundColor Red
 
-    return $null
+        Write-Log `
+            "Verkkosivun avaaminen epaonnistui: $($_.Exception.Message)" `
+            "ERROR"
+    }
 }
 
 
 # ============================================
-# PROFIILIN KAYNNISTYS
+# KANSION AVAAMINEN
+# ============================================
+
+function Start-ProfileFolder {
+    param (
+        [string]$Folder
+    )
+
+    try {
+        $expandedFolder = Expand-AppPath $Folder
+
+        if (-not (Test-Path $expandedFolder)) {
+            throw "Kansiota ei loytynyt: $expandedFolder"
+        }
+
+        Start-Process `
+            explorer.exe `
+            -ArgumentList $expandedFolder
+
+        Write-Host `
+            "Kansio avattu: $expandedFolder" `
+            -ForegroundColor Green
+
+        Write-Log `
+            "Kansio avattu: $expandedFolder"
+    }
+    catch {
+
+        Write-Host `
+            $_.Exception.Message `
+            -ForegroundColor Yellow
+
+        Write-Log `
+            $_.Exception.Message `
+            "WARNING"
+    }
+}
+
+
+# ============================================
+# KOKO PROFIILIN KAYNNISTYS
 # ============================================
 
 function Start-Profile {
@@ -249,240 +298,167 @@ function Start-Profile {
         [string]$ProfileName
     )
 
-    try {
+    $profile = Get-ProfileConfig $ProfileName
 
-        $profile = Get-ProfileConfig $ProfileName
-
-
-        if ($null -eq $profile) {
-            return
-        }
-
-
-        Write-Host ""
-
-        Write-Host `
-            "Kaynnistetaan profiili: $($profile.Name)" `
-            -ForegroundColor Cyan
-
-
-        Write-Log `
-            "Profiili $($profile.Name) kaynnistetaan"
-
-
-        # ====================================
-        # OHJELMAT
-        # ====================================
-
-        foreach ($app in $profile.Apps) {
-
-            Start-ProfileApp $app
-        }
-
-
-        # ====================================
-        # VERKKOSIVUT GOOGLE CHROMESSA
-        # ====================================
-
-        $chromePath = Get-ChromePath
-
-
-        foreach ($website in $profile.Websites) {
-
-            try {
-
-                if ($chromePath) {
-
-                    Start-Process `
-                        -FilePath $chromePath `
-                        -ArgumentList $website `
-                        -ErrorAction Stop
-
-
-                    Write-Host `
-                        "Avattu Chromessa: $website"
-
-
-                    Write-Log `
-                        "Verkkosivu avattu Chromessa: $website"
-                }
-                else {
-
-                    Write-Host `
-                        "Google Chromea ei loytynyt." `
-                        -ForegroundColor Red
-
-
-                    Write-Log `
-                        "Google Chromea ei loytynyt" `
-                        "ERROR"
-                }
-            }
-            catch {
-
-                Write-Host `
-                    "Verkkosivun avaaminen epaonnistui." `
-                    -ForegroundColor Red
-
-
-                Write-Log `
-                    "Verkkosivun avaaminen epaonnistui: $website - $($_.Exception.Message)" `
-                    "ERROR"
-            }
-        }
-
-
-        # ====================================
-        # KANSIOT
-        # ====================================
-
-        foreach ($folder in $profile.Folders) {
-
-            try {
-
-                $expandedFolder = Expand-AppPath $folder
-
-
-                if (Test-Path $expandedFolder) {
-
-                    Start-Process `
-                        explorer.exe `
-                        -ArgumentList $expandedFolder `
-                        -ErrorAction Stop
-
-
-                    Write-Host `
-                        "Kansio avattu: $expandedFolder"
-
-
-                    Write-Log `
-                        "Kansio avattu: $expandedFolder"
-                }
-                else {
-
-                    Write-Host `
-                        "Kansiota ei loytynyt: $expandedFolder" `
-                        -ForegroundColor Yellow
-
-
-                    Write-Log `
-                        "Kansiota ei loytynyt: $expandedFolder" `
-                        "WARNING"
-                }
-            }
-            catch {
-
-                Write-Host `
-                    "Kansion avaaminen epaonnistui." `
-                    -ForegroundColor Red
-
-
-                Write-Log `
-                    "Kansion avaaminen epaonnistui: $folder - $($_.Exception.Message)" `
-                    "ERROR"
-            }
-        }
-
-
-        Write-Host ""
-
-        Write-Host `
-            "Profiili kaynnistetty!" `
-            -ForegroundColor Green
-
-
-        Write-Log `
-            "Profiili $($profile.Name) kaynnistetty"
+    if ($null -eq $profile) {
+        return
     }
-    catch {
 
-        Write-Host `
-            "Profiilin kaynnistyksessa tapahtui virhe." `
-            -ForegroundColor Red
+    Write-Log "Profiili $($profile.Name) kaynnistetaan"
 
-
-        Write-Log `
-            "Profiilin kaynnistyksessa tapahtui virhe: $($_.Exception.Message)" `
-            "ERROR"
+    foreach ($app in $profile.Apps) {
+        Start-ProfileApp $app
     }
+
+    foreach ($website in $profile.Websites) {
+        Start-ProfileWebsite $website
+    }
+
+    foreach ($folder in $profile.Folders) {
+        Start-ProfileFolder $folder
+    }
+
+    Write-Host ""
+    Write-Host "Kaikki kaynnistetty!" -ForegroundColor Green
+
+    Write-Log "Profiili $($profile.Name) kaynnistetty"
 }
 
 
 # ============================================
-# PROFIILIN OHJELMIEN SULKEMINEN
+# PROFIILIN ALAVALIKKO
 # ============================================
 
-function Stop-Profile {
+function Show-ProfileMenu {
     param (
         [string]$ProfileName
     )
 
-    try {
+    $profile = Get-ProfileConfig $ProfileName
 
-        $profile = Get-ProfileConfig $ProfileName
+    if ($null -eq $profile) {
+        return
+    }
 
+    while ($true) {
 
-        if ($null -eq $profile) {
-            return
+        Clear-Host
+
+        Write-Host "========================================="
+        Write-Host "          $($profile.Name.ToUpper())"
+        Write-Host "========================================="
+        Write-Host ""
+
+        $items = @()
+
+        # Lisataan ohjelmat valikkoon
+        foreach ($app in $profile.Apps) {
+
+            $items += [PSCustomObject]@{
+                Type = "App"
+                Name = $app.Name
+                Data = $app
+            }
         }
 
+        # Lisataan verkkosivut valikkoon
+        foreach ($website in $profile.Websites) {
+
+            if ($website -is [string]) {
+                $name = $website
+            }
+            else {
+                $name = $website.Name
+            }
+
+            $items += [PSCustomObject]@{
+                Type = "Website"
+                Name = $name
+                Data = $website
+            }
+        }
+
+        # Lisataan kansiot valikkoon
+        foreach ($folder in $profile.Folders) {
+
+            $items += [PSCustomObject]@{
+                Type = "Folder"
+                Name = "Avaa kansio: $folder"
+                Data = $folder
+            }
+        }
+
+        $index = 1
+
+        foreach ($item in $items) {
+            Write-Host "$index. $($item.Name)"
+            $index++
+        }
+
+        $allChoice = $index
+        Write-Host "$allChoice. Kaynnista kaikki"
+
+        $index++
+
+        $backChoice = $index
+        Write-Host "$backChoice. Takaisin"
 
         Write-Host ""
 
-        Write-Host `
-            "Suljetaan profiilin ohjelmia..." `
-            -ForegroundColor Cyan
+        $choice = Read-Host "Valitse toiminto"
 
-
-        foreach ($processName in $profile.StopProcesses) {
-
-            try {
-
-                $process = Get-Process `
-                    -Name $processName `
-                    -ErrorAction SilentlyContinue
-
-
-                if ($process) {
-
-                    $process |
-                        Stop-Process `
-                            -Force `
-                            -ErrorAction Stop
-
-
-                    Write-Host `
-                        "$processName suljettu." `
-                        -ForegroundColor Green
-
-
-                    Write-Log `
-                        "Prosessi $processName suljettu"
-                }
-                else {
-
-                    Write-Host `
-                        "$processName ei ollut kaynnissa."
-                }
-            }
-            catch {
-
-                Write-Host `
-                    "$processName sulkeminen epaonnistui." `
-                    -ForegroundColor Red
-
-
-                Write-Log `
-                    "$processName sulkeminen epaonnistui: $($_.Exception.Message)" `
-                    "ERROR"
-            }
+        if ($choice -notmatch '^\d+$') {
+            Write-Host "Anna numero." -ForegroundColor Red
+            Start-Sleep -Seconds 1
+            continue
         }
-    }
-    catch {
 
-        Write-Log `
-            "Profiilin sulkeminen epaonnistui: $($_.Exception.Message)" `
-            "ERROR"
+        $number = [int]$choice
+
+        if ($number -ge 1 -and $number -le $items.Count) {
+
+            $selected = $items[$number - 1]
+
+            switch ($selected.Type) {
+
+                "App" {
+                    Start-ProfileApp $selected.Data
+                }
+
+                "Website" {
+                    Start-ProfileWebsite $selected.Data
+                }
+
+                "Folder" {
+                    Start-ProfileFolder $selected.Data
+                }
+            }
+
+            Write-Host ""
+            Read-Host "Paina Enter jatkaaksesi"
+        }
+
+        elseif ($number -eq $allChoice) {
+
+            Start-Profile $ProfileName
+
+            Write-Host ""
+            Read-Host "Paina Enter jatkaaksesi"
+        }
+
+        elseif ($number -eq $backChoice) {
+
+            break
+        }
+
+        else {
+
+            Write-Host `
+                "Virheellinen valinta." `
+                -ForegroundColor Red
+
+            Start-Sleep -Seconds 1
+        }
     }
 }
 
@@ -493,14 +469,11 @@ function Stop-Profile {
 
 function Show-ProgramStatus {
 
+    Clear-Host
+
+    Write-Host "OHJELMIEN TILA" -ForegroundColor Cyan
+    Write-Host "-----------------------------------------"
     Write-Host ""
-
-    Write-Host `
-        "OHJELMIEN TILA" `
-        -ForegroundColor Cyan
-
-    Write-Host "-----------------------------"
-
 
     try {
 
@@ -508,9 +481,7 @@ function Show-ProgramStatus {
             "$Script:ProfilesDir\*.json" `
             -ErrorAction Stop
 
-
-        $processNames = @()
-
+        $apps = @()
 
         foreach ($file in $files) {
 
@@ -519,52 +490,48 @@ function Show-ProgramStatus {
                 -Raw |
                 ConvertFrom-Json
 
-
             foreach ($app in $profile.Apps) {
 
                 if ($app.ProcessName) {
 
-                    $processNames += $app.ProcessName
+                    $apps += [PSCustomObject]@{
+                        Name = $app.Name
+                        ProcessName = $app.ProcessName
+                    }
                 }
             }
         }
 
+        $apps = $apps |
+            Sort-Object ProcessName -Unique
 
-        $processNames = $processNames |
-            Sort-Object -Unique
-
-
-        foreach ($processName in $processNames) {
+        foreach ($app in $apps) {
 
             $running = Get-Process `
-                -Name $processName `
+                -Name $app.ProcessName `
                 -ErrorAction SilentlyContinue
-
 
             if ($running) {
 
                 Write-Host `
-                    "$processName : KAYNNISSA" `
+                    "$($app.Name) : KAYNNISSA" `
                     -ForegroundColor Green
             }
             else {
 
                 Write-Host `
-                    "$processName : EI KAYNNISSA" `
+                    "$($app.Name) : EI KAYNNISSA" `
                     -ForegroundColor DarkGray
             }
         }
 
-
-        Write-Log `
-            "Ohjelmien tila tarkistettu"
+        Write-Log "Ohjelmien tila tarkistettu"
     }
     catch {
 
         Write-Host `
             "Tilatarkistus epaonnistui." `
             -ForegroundColor Red
-
 
         Write-Log `
             "Tilatarkistus epaonnistui: $($_.Exception.Message)" `
@@ -574,29 +541,25 @@ function Show-ProgramStatus {
 
 
 # ============================================
-# LOKIN NAYTTAMINEN
+# LOKIN NAYTTO
 # ============================================
 
 function Show-Log {
 
+    Clear-Host
+
+    Write-Host "LOKI" -ForegroundColor Cyan
+    Write-Host "-----------------------------------------"
     Write-Host ""
-
-    Write-Host `
-        "LOKI" `
-        -ForegroundColor Cyan
-
-    Write-Host "-----------------------------"
-
 
     if (Test-Path $Script:LogFile) {
 
         Get-Content `
             $Script:LogFile `
-            -Tail 20
+            -Tail 30
     }
     else {
 
-        Write-Host `
-            "Lokia ei ole viela luotu."
+        Write-Host "Lokia ei ole viela luotu."
     }
 }

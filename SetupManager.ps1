@@ -4,6 +4,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 Write-Log "Windows Setup Manager kaynnistetty"
 
+
 while ($true) {
 
     Clear-Host
@@ -13,53 +14,86 @@ while ($true) {
     Write-Host "========================================="
     Write-Host ""
 
-    $profiles = Get-ChildItem "$Script:ProfilesDir\*.json"
+    try {
 
-    $index = 1
+        $profiles = Get-ChildItem `
+            "$Script:ProfilesDir\*.json" `
+            -ErrorAction Stop
 
-    foreach ($profileFile in $profiles) {
+        $index = 1
 
-        $profile = Get-Content $profileFile.FullName -Raw | ConvertFrom-Json
+        foreach ($profileFile in $profiles) {
 
-        Write-Host "$index. $($profile.Name)"
+            $profile = Get-Content `
+                $profileFile.FullName `
+                -Raw |
+                ConvertFrom-Json
+
+            Write-Host "$index. $($profile.Name)"
+
+            $index++
+        }
+
+
+        $statusChoice = $index
+
+        Write-Host "$statusChoice. Tarkista ohjelmien tila"
 
         $index++
-    }
 
-    Write-Host "$index. Tarkista ohjelmien tila"
-    $statusChoice = $index
 
-    $index++
+        $logChoice = $index
 
-    Write-Host "$index. Nayta loki"
-    $logChoice = $index
+        Write-Host "$logChoice. Nayta loki"
 
-    $index++
+        $index++
 
-    Write-Host "$index. Lopeta"
-    $exitChoice = $index
 
-    Write-Host ""
+        $exitChoice = $index
 
-    $choice = Read-Host "Valitse toiminto"
+        Write-Host "$exitChoice. Lopeta"
 
-    if ($choice -match '^\d+$') {
+        Write-Host ""
+
+
+        $choice = Read-Host "Valitse toiminto"
+
+
+        if ($choice -notmatch '^\d+$') {
+
+            Write-Host `
+                "Anna numero." `
+                -ForegroundColor Red
+
+            Start-Sleep -Seconds 1
+
+            continue
+        }
+
 
         $number = [int]$choice
+
+
+        # ====================================
+        # PROFIILIN VALINTA
+        # ====================================
 
         if ($number -ge 1 -and $number -le $profiles.Count) {
 
             $selectedFile = $profiles[$number - 1]
 
-            $profileName = [System.IO.Path]::GetFileNameWithoutExtension(
-                $selectedFile.Name
-            )
+            $profileName = `
+                [System.IO.Path]::GetFileNameWithoutExtension(
+                    $selectedFile.Name
+                )
 
-            Start-Profile $profileName
-
-            Write-Host ""
-            Read-Host "Paina Enter jatkaaksesi"
+            Show-ProfileMenu $profileName
         }
+
+
+        # ====================================
+        # OHJELMIEN TILA
+        # ====================================
 
         elseif ($number -eq $statusChoice) {
 
@@ -69,6 +103,11 @@ while ($true) {
             Read-Host "Paina Enter jatkaaksesi"
         }
 
+
+        # ====================================
+        # LOKI
+        # ====================================
+
         elseif ($number -eq $logChoice) {
 
             Show-Log
@@ -77,21 +116,42 @@ while ($true) {
             Read-Host "Paina Enter jatkaaksesi"
         }
 
+
+        # ====================================
+        # LOPETA
+        # ====================================
+
         elseif ($number -eq $exitChoice) {
 
             Write-Log "Windows Setup Manager lopetettu"
 
+            Write-Host ""
+            Write-Host "Ohjelma lopetetaan."
+
             break
         }
 
+
         else {
-            Write-Host "Virheellinen valinta." -ForegroundColor Red
+
+            Write-Host `
+                "Virheellinen valinta." `
+                -ForegroundColor Red
+
             Start-Sleep -Seconds 1
         }
     }
+    catch {
 
-    else {
-        Write-Host "Anna numero." -ForegroundColor Red
-        Start-Sleep -Seconds 1
+        Write-Host `
+            "Virhe: $($_.Exception.Message)" `
+            -ForegroundColor Red
+
+        Write-Log `
+            "Paaohjelman virhe: $($_.Exception.Message)" `
+            "ERROR"
+
+        Write-Host ""
+        Read-Host "Paina Enter jatkaaksesi"
     }
 }
