@@ -4,7 +4,7 @@
     "Apps": [
         {
             "Name": "TikTok LIVE Studio",
-            "Path": "%LOCALAPPDATA%\\TikTok LIVE Studio\\TikTok LIVE Studio.exe",
+            "Path": "C:\\Program Files\\TikTok LIVE Studio\\1.36.6\\TikTok LIVE Studio.exe",
             "Arguments": "",
             "ProcessName": "TikTok LIVE Studio"
         }
