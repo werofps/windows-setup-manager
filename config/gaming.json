@@ -1,0 +1,29 @@
+{
+    "Name": "Gaming",
+    "Apps": [
+        {
+            "Name": "Discord",
+            "Path": "%LOCALAPPDATA%\\Discord\\Update.exe",
+            "Arguments": "--processStart Discord.exe",
+            "ProcessName": "Discord"
+        },
+        {
+            "Name": "Riot Client",
+            "Path": "C:\\Riot Games\\Riot Client\\RiotClientServices.exe",
+            "Arguments": "",
+            "ProcessName": "RiotClientServices"
+        }
+    ],
+
+    "Websites": [
+        "https://tracker.gg/valorant"
+    ],
+
+    "Folders": [],
+
+    "StopProcesses": [
+        "Discord",
+        "RiotClientServices",
+        "VALORANT-Win64-Shipping"
+    ]
+}

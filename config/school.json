@@ -1,0 +1,25 @@
+{
+    "Name": "Koulu",
+
+    "Apps": [
+        {
+            "Name": "Microsoft Edge",
+            "Path": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+            "Arguments": "",
+            "ProcessName": "msedge"
+        }
+    ],
+
+    "Websites": [
+        "https://www.office.com/"
+    ],
+
+    "Folders": [
+        "%USERPROFILE%\\Documents",
+        "%USERPROFILE%\\Downloads"
+    ],
+
+    "StopProcesses": [
+        "msedge"
+    ]
+}
